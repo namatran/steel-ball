@@ -99,6 +99,20 @@ GROOVE_R=float(sys.argv[2]) if len(sys.argv)>2 else 1.9
 FLAT=int(sys.argv[1]) if len(sys.argv)>1 else 0
 if FLAT:   # flatten: edge-preserving smoothing keeps the ink and cel edges, evens out frame noise
     for _ in range(FLAT): out=cv2.bilateralFilter(out,7,28,5)
+# cel flatten (panels only): mean-shift smooths frame noise, k-means snaps to a few flat colours,
+# a median pass rounds the shape edges. argv[3] = colours per panel (0 = off).
+CEL=int(sys.argv[3]) if len(sys.argv)>3 else 7
+if CEL:
+    for cell in range(6):
+        x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
+        t=out[y0:y0+CELL[1],x0:x0+CELL[0]].copy()
+        t=cv2.pyrMeanShiftFiltering(t,6,18)
+        lab=cv2.cvtColor(t,cv2.COLOR_RGB2LAB).astype(np.float32); reg=lab[PY:PY+MAXY-PY,PX:PX+PW].reshape(-1,3)
+        _,_,cen=cv2.kmeans(reg,CEL,None,(cv2.TERM_CRITERIA_EPS|cv2.TERM_CRITERIA_MAX_ITER,30,0.5),3,cv2.KMEANS_PP_CENTERS)
+        d=((lab.reshape(-1,1,3)-cen[None])**2).sum(-1); q=cen[d.argmin(1)].reshape(lab.shape)
+        q=cv2.cvtColor(np.clip(q,0,255).astype(np.uint8),cv2.COLOR_LAB2RGB)
+        q=cv2.medianBlur(q,9)
+        out[y0:y0+CELL[1],x0:x0+CELL[0]]=q
 # clean grooves: the frames see grooves smeared and at odd angles, so the groove channels, lips and
 # ink lines on the panels come from the procedural starter art (starter.png, = `npm run ink`), the
 # traced paint stays everywhere else. Hexagon cells keep the traced grooves.
