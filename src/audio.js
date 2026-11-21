@@ -1,17 +1,18 @@
-// Hamon sound: a seamless ~1 s loop (3.0-4.0 s of the source clip) that fades in while
-// Golden Rotation runs and out after.
+// Hamon sound: a seamless ~1 s loop (3.0-4.0 s of the source clip) whose volume follows the
+// ball's spin: silent at rest, full during Golden Rotation.
 import hamonUrl from './assets/hamon-loop.wav';
 
-const FADE_IN = 0.15; // seconds
-const FADE_OUT = 0.5;
 const LEVEL = 0.8;
+const SMOOTH = 0.08; // seconds: time constant of the volume follow
+const IDLE_STOP = 1; // seconds of silence before the loop source is torn down
 
 let ctx = null;
 let gain = null;
 let source = null;
 let buffer = null;
-let wanted = false; // whether the sound should currently be playing
+let amount = 0; // 0..1, how loud the spin wants it
 let muted = false;
+let silentFor = 0;
 
 function setup() {
   if (ctx) return;
@@ -22,52 +23,36 @@ function setup() {
   fetch(hamonUrl)
     .then((r) => r.arrayBuffer())
     .then((data) => ctx.decodeAudioData(data))
-    .then((b) => {
-      buffer = b;
-      if (wanted) start();
-    })
+    .then((b) => { buffer = b; })
     .catch(() => {});
 }
 
-function start() {
-  if (!buffer || source) return;
-  source = ctx.createBufferSource();
-  source.buffer = buffer;
-  source.loop = true;
-  source.connect(gain);
-  source.start();
-}
-
-function ramp(to, seconds) {
-  const t = ctx.currentTime;
-  gain.gain.cancelScheduledValues(t);
-  gain.gain.setValueAtTime(gain.gain.value, t);
-  gain.gain.linearRampToValueAtTime(to, t + seconds);
-}
-
-// Call from a user gesture the first time (browsers block audio until then).
-export function playHamon() {
+// Call from a user gesture (browsers block audio until then); safe to call repeatedly.
+export function unlockHamon() {
   setup();
-  wanted = true;
-  ctx.resume();
-  start();
-  ramp(muted ? 0 : LEVEL, FADE_IN);
+  if (ctx.state !== 'running') ctx.resume();
 }
 
-export function stopHamon() {
-  if (!ctx) return;
-  wanted = false;
-  ramp(0, FADE_OUT);
-  const s = source;
-  setTimeout(() => {
-    if (!wanted && s && s === source) {
-      s.stop();
-      source = null;
+// Call every frame with 0..1 (0 = at rest). dt in seconds.
+export function setSpinAmount(value, dt) {
+  amount = value;
+  if (!ctx || ctx.state !== 'running') return;
+  if (amount > 0.001) {
+    silentFor = 0;
+    if (buffer && !source) {
+      source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(gain);
+      source.start();
     }
-  }, FADE_OUT * 1000 + 50);
+  } else if (source && (silentFor += dt) > IDLE_STOP) {
+    source.stop();
+    source = null;
+  }
+  gain.gain.setTargetAtTime(muted ? 0 : amount * LEVEL, ctx.currentTime, SMOOTH);
 }
 
 export function setMuted(value) {
   muted = value;
-  if (ctx && wanted) ramp(muted ? 0 : LEVEL, 0.1);
 }

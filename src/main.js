@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { createBall, PHI, SHAPE_DEFAULTS, OPENING_POSE } from './ball.atlas.js';
 import { createShadow, createStreaks, createGoldenRect } from './effects.js';
-import { playHamon, stopHamon, setMuted } from './audio.js';
+import { unlockHamon, setSpinAmount, setMuted } from './audio.js';
 
 const card = document.getElementById('card');
 const canvas = document.getElementById('scene');
@@ -73,7 +73,7 @@ const params = {
   streaks: true,
   hover: true, // gentle float up and down
   axis: false, // show the spin axis through the ball
-  sound: true, // Hamon sound loop during Golden Rotation
+  sound: true, // Hamon sound loop while the ball spins
   diagram: false, // show the golden rectangle outside Golden Rotation too
   diagramSize: 2.3,
   ...SHAPE_DEFAULTS,
@@ -153,8 +153,6 @@ function toggleGolden(fromToss = false) {
     tossed = false;
     params.speed = 0; // release: let it coast down
   }
-  if (golden.active) playHamon();
-  else stopHamon();
   goldenButton.name(golden.active ? '✦ Release' : '✦ Golden Rotation');
 }
 
@@ -246,6 +244,10 @@ chip.textContent = '✦ Golden Spin';
 chip.addEventListener('click', () => { if (!golden.active) toggleGolden(true); });
 card.appendChild(chip);
 
+// Browsers only allow audio after a gesture: any press on the page unlocks it.
+addEventListener('pointerdown', unlockHamon);
+addEventListener('keydown', unlockHamon);
+
 // ---------- loop ----------
 const clock = new THREE.Clock();
 let hoverAmt = 1;
@@ -275,6 +277,7 @@ function tick() {
   }
 
   const speed = omega.length();
+  setSpinAmount(golden.active ? 1 : THREE.MathUtils.smoothstep(speed, 0.5, 6), dt);
   if (speed > 1e-3) {
     spinAxis.copy(omega).divideScalar(speed);
     rotateBall(spinAxis, speed * dt);
