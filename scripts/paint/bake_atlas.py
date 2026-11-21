@@ -138,6 +138,20 @@ if CEL:
         q=cv2.cvtColor(np.clip(q,0,255).astype(np.uint8),cv2.COLOR_LAB2RGB)
         q=cv2.medianBlur(q,9)
         out[y0:y0+CELL[1],x0:x0+CELL[0]]=q
+# even out panel brightness: each source frame was lit differently (and each cell was divided by its own
+# shadow estimate), but without shadow the ball is plain cel shading, so every piece should sit at the same
+# overall level. Match each cell's lit-green level (70th percentile of luminance) to the common median.
+def lit_level(cell):
+    x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]; t=out[y0:y0+CELL[1],x0:x0+CELL[0]].astype(np.float32)
+    L=t@np.array([0.3,0.59,0.11],np.float32)
+    if cell<6: m=np.zeros(L.shape,bool); m[PY:PY+EDGEY-30,PX+40:PX+PW-40]=True
+    else:
+        yy,xx=np.mgrid[0:CELL[1],0:CELL[0]]; m=np.hypot(xx-HEXC[0],yy-HEXC[1])<HEXR*0.75
+    return np.percentile(L[m],70)
+LV=[lit_level(c) for c in range(8)]; TARGET=float(np.median(LV)); print('lit levels',np.round(LV,1),'target %.1f'%TARGET)
+for cell in range(8):
+    g=np.clip(TARGET/LV[cell],0.6,1.5); x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
+    out[y0:y0+CELL[1],x0:x0+CELL[0]]=np.clip(out[y0:y0+CELL[1],x0:x0+CELL[0]].astype(np.float32)*g,0,255).astype(np.uint8)
 # clean grooves: the frames see grooves smeared and at odd angles, so the groove channels, lips and
 # ink lines on the panels come from the procedural starter art (starter.png, = `npm run ink`), the
 # traced paint stays everywhere else. Hexagon cells keep the traced grooves.
