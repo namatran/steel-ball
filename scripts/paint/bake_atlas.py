@@ -151,8 +151,17 @@ def lit_level(cell):
     return np.percentile(L[m],70)
 LV=[lit_level(c) for c in range(NC)]; TARGET=float(np.median(LV)); print('lit levels',np.round(LV,1),'target %.1f'%TARGET)
 for cell in range(NC):
-    g=np.clip(TARGET/LV[cell],0.6,1.5); x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
+    g=np.clip(TARGET/LV[cell],0.6,2.2); x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
     out[y0:y0+CELL[1],x0:x0+CELL[0]]=np.clip(out[y0:y0+CELL[1],x0:x0+CELL[0]].astype(np.float32)*g,0,255).astype(np.uint8)
+# equator seam: a panel's north cell k and south cell 8+k meet along their top edge (y=PY). They are painted
+# apart now, so blend them toward each other over SEAM px so the paint is continuous across the equator.
+SEAM=int(os.environ.get('SEAM','72'))
+w=np.clip(1-(np.arange(CELL[1])-PY)/SEAM,0,1)[:,None,None]; w=w*w*(3-2*w)*0.5   # 0.5 at the equator = the average
+for k in range(6):
+    xn,yn=(k%4)*CELL[0],(k//4)*CELL[1]; xs_,ys_=((k+8)%4)*CELL[0],((k+8)//4)*CELL[1]
+    N=out[yn:yn+CELL[1],xn:xn+CELL[0]].astype(np.float32); S=out[ys_:ys_+CELL[1],xs_:xs_+CELL[0]].astype(np.float32)
+    out[yn:yn+CELL[1],xn:xn+CELL[0]]=np.clip(N*(1-w)+S*w,0,255).astype(np.uint8)
+    out[ys_:ys_+CELL[1],xs_:xs_+CELL[0]]=np.clip(S*(1-w)+N*w,0,255).astype(np.uint8)
 # clean grooves: the frames see grooves smeared and at odd angles, so the groove channels, lips and
 # ink lines on the panels come from the procedural starter art (starter.png, = `npm run ink`), the
 # traced paint stays everywhere else. Hexagon cells keep the traced grooves.
@@ -169,6 +178,11 @@ for cell in PANEL_CELLS:
     sy0=((cell-8 if cell>=8 else cell)//4)*CELL[1]; sx0=((cell-8 if cell>=8 else cell)%4)*CELL[0]
     res[y0:y0+CELL[1],x0:x0+CELL[0]]=res[y0:y0+CELL[1],x0:x0+CELL[0]]*(1-A)+st[sy0:sy0+CELL[1],sx0:sx0+CELL[0]]*A
 out=np.clip(res,0,255).astype(np.uint8)
+# rows above the equator line (y<PY) are never sampled on purpose; copy the equator row up so texture
+# filtering at the seam only ever blends equal colours.
+for cell in PANEL_CELLS:
+    x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
+    out[y0:y0+PY,x0:x0+CELL[0]]=out[y0+PY:y0+PY+1,x0:x0+CELL[0]]
 Image.fromarray(out).save('../../src/assets/ink.png',optimize=True)
 json.dump(dict(L=SL.tolist(),g=SG.tolist()),open('../../src/assets/shade.json','w'))
 poses={k:[round(float(x),4) for x in Rot.from_matrix(P[k]@GS[TW[[i for i,ch in enumerate(CHAINS) if k in ch][0]]]).as_quat()] for ch in CHAINS for k in ch}

@@ -171,7 +171,12 @@ const fragmentShader = /* glsl */ `
     // the part of the ball facing away from the light goes darker, and it
     // stays put while the ball (and its paint) turns.
     vec2 px = atlasPx(p, o);
-    vec3 col = texture2D(uInk, vec2(px.x / ${ATLAS.w.toFixed(1)}, 1.0 - px.y / ${ATLAS.h.toFixed(1)})).rgb;
+    // Texture derivatives from a seam-free coordinate: the north/south cells and the hexagon/panel cells
+    // sit far apart in the atlas, so the raw jump would pick the blurriest mip level along the seams.
+    vec2 pxd = o.plate > 0.0 ? px : atlasPx(vec3(p.x, abs(p.y), p.z), o);
+    vec2 uv = vec2(px.x / ${ATLAS.w.toFixed(1)}, 1.0 - px.y / ${ATLAS.h.toFixed(1)});
+    vec2 uvd = vec2(pxd.x / ${ATLAS.w.toFixed(1)}, 1.0 - pxd.y / ${ATLAS.h.toFixed(1)});
+    vec3 col = textureGrad(uInk, uv, dFdx(uvd), dFdy(uvd)).rgb;
     col *= 2.0 * mix(1.0, shadowAt(dot(S, L)), uShadow); // paint is stored at half scale; 0 = fully lit, flat
     return col;
   }
