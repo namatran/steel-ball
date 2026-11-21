@@ -256,13 +256,33 @@ export function createBall() {
   ball.quaternion.copy(OPENING_POSE);
   group.add(ball);
 
-  // Ink outline: a slightly larger back-face shell. Spheres look the same
-  // from every angle, so it doesn't need to rotate with the ball.
+  // Ink outline: a back-face shell offset from the surface. It uses the same
+  // height field as the ball, so the line follows the grooves and their
+  // ridges at the silhouette, and it turns with the ball.
   const outline = new THREE.Mesh(
-    new THREE.SphereGeometry(1.012, 96, 64),
-    new THREE.MeshBasicMaterial({ color: 0x1e3a0b, side: THREE.BackSide }),
+    ball.geometry,
+    new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      uniforms: {
+        uApothem: material.uniforms.uApothem,
+        uBulge: material.uniforms.uBulge,
+        uSlotGap: material.uniforms.uSlotGap,
+        uDepth: material.uniforms.uDepth,
+      },
+      vertexShader: /* glsl */ `
+        ${shapeChunk}
+        void main() {
+          vec3 dir = normalize(position);
+          vec3 displaced = dir * (1.012 + shapeHeight(dir));
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(displaced, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        void main() { gl_FragColor = vec4(0.1176, 0.2275, 0.0431, 1.0); } // 0x1e3a0b
+      `,
+    }),
   );
-  group.add(outline);
+  ball.add(outline);
 
   return { group, ball, material };
 }
