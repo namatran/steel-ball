@@ -114,12 +114,21 @@ GROOVE_R=float(sys.argv[2]) if len(sys.argv)>2 else 1.9
 FLAT=int(sys.argv[1]) if len(sys.argv)>1 else 0
 if FLAT:   # flatten: edge-preserving smoothing keeps the ink and cel edges, evens out frame noise
     for _ in range(FLAT): out=cv2.bilateralFilter(out,7,28,5)
+# hand/AI-polished cells: polish/out/cellN.png (512x640, shadow-free full-brightness art) replaces the traced cell.
+# The atlas holds paint at half scale (the shader doubles it), so store it halved.
+import os
+POL=set()
+for cell in range(6):
+    p='../../polish/out/cell%d.png'%cell
+    if os.path.exists(p):
+        x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
+        out[y0:y0+CELL[1],x0:x0+CELL[0]]=(np.asarray(Image.open(p).convert('RGB').resize((CELL[0],CELL[1]))).astype(np.float32)*0.5).astype(np.uint8); POL.add(cell)
 # cel flatten (panels only): mean-shift smooths frame noise, k-means snaps to a few flat colours,
 # a median pass rounds the shape edges. argv[3] = colours per panel (0 = off).
 CEL=int(sys.argv[3]) if len(sys.argv)>3 else 7
 if CEL:
     for cell in range(6):
-        if sel[cell][1]=='p016': continue   # already crisp cel art with no shadow: leave as is
+        if sel[cell][1]=='p016' or cell in POL: continue   # already crisp cel art with no shadow: leave as is
         x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
         t=out[y0:y0+CELL[1],x0:x0+CELL[0]].copy()
         t=cv2.pyrMeanShiftFiltering(t,6,18)
@@ -132,7 +141,7 @@ if CEL:
 # clean grooves: the frames see grooves smeared and at odd angles, so the groove channels, lips and
 # ink lines on the panels come from the procedural starter art (starter.png, = `npm run ink`), the
 # traced paint stays everywhere else. Hexagon cells keep the traced grooves.
-st=np.asarray(Image.open('starter.png').convert('RGB')).astype(np.float32)
+st=np.asarray(Image.open('starter.png').convert('RGB')).astype(np.float32)*0.5   # half scale like the paint
 SEGR=np.radians(60); GW=0.05*458.4
 sEC=np.pi/2-edge_theta(SEGR/2); slotEnd=EDGEY*(1-np.radians(9)/sEC)
 ys,xs=np.mgrid[0:CELL[1],0:CELL[0]].astype(float); lx=xs-PX; ly=ys-PY
