@@ -244,9 +244,9 @@ chip.textContent = '✦ Golden Spin';
 chip.addEventListener('click', () => { if (!golden.active) toggleGolden(true); });
 card.appendChild(chip);
 
-// Browsers only allow audio after a gesture: any press on the page unlocks it.
-addEventListener('pointerdown', unlockHamon);
-addEventListener('keydown', unlockHamon);
+// Browsers only allow audio after a gesture: any press on the page unlocks it (and retries until it runs).
+// Safari and some embedded browsers only count click/touchend/keydown, so listen for all of them.
+for (const type of ['pointerdown', 'pointerup', 'click', 'touchend', 'keydown']) addEventListener(type, unlockHamon);
 
 // ---------- loop ----------
 const clock = new THREE.Clock();
