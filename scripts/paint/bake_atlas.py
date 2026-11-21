@@ -13,10 +13,15 @@ HEXC=(256,256); HEXR=240; HPPU=458.4
 APO=np.radians(24); BUL=np.radians(78)
 circ=json.load(open('circles_new.json'))
 P={k:quat_to_mat(np.array(v)) for k,v in json.load(open('poses_new.json')).items()}
+P['p016']=quat_to_mat(np.array(json.load(open('poses_p016.json'))['p016']['q']))
 SH=json.load(open('shade.json')); SL=np.array(SH['L'])
 SG=0.45+0.55*np.array(SH['g']); SK=np.linspace(-1,1,len(SG))
 FCH=['f%03d'%i for i in range(27,60,2)]; GCH=['g008','g010','g012','g014','g018','g022']
-CHAINS=[FCH,GCH,['f012'],['f014']]
+CHAINS=[FCH,GCH,['f012'],['f014'],['p016']]
+# p016: pasted palm frame from 0:16 (frames/p016.png, 2000x1301): large, crisp, NO shadow. Fitted by fit_p016.py.
+circ['p016']=[1102/2,905/2,437/2]   # stored half-scale like the others (doubled below)
+PM=np.load('p016_mask.npy'); PM=ndi.binary_dilation(PM,iterations=2)  # green-ball mask (no fingers/hat/lips)
+POSES_EXTRA=json.load(open('poses_p016.json'))
 
 def edge_theta(dp):
     cc=APO-BUL; a=np.sin(cc)*np.cos(dp); b=np.cos(cc)
@@ -40,19 +45,27 @@ def piece(D):
 rng=np.random.default_rng(0)
 pts=rng.normal(size=(40000,3)); pts/=np.linalg.norm(pts,axis=1,keepdims=True); lab=piece(pts)
 mir=pts*np.array([1,-1,1])
+def vis(k,V):
+    """1 where the frame sees direction-view V (n,3) at all (front side, inside the green-ball mask for p016)"""
+    if k!='p016': return np.ones(len(V))
+    cx,cy,r=[v*2 for v in circ[k]]; px=np.clip((cx+V[:,0]*r).astype(int),0,PM.shape[1]-1); py=np.clip((cy-V[:,1]*r).astype(int),0,PM.shape[0]-1)
+    return PM[py,px].astype(float)
+BIAS={'p016':1.4}   # sharper, shadow-free source
 def quality(k,G):
-    R=P[k]@G; z=np.maximum((pts@R.T)[:,2],(mir@R.T)[:,2]); z0=(pts@R.T)[:,2]
+    R=P[k]@G; V=pts@R.T; Vm=mir@R.T
+    z=np.maximum(V[:,2]*vis(k,V)+(1-vis(k,V))*-1,Vm[:,2]*vis(k,Vm)+(1-vis(k,Vm))*-1); z0=V[:,2]*vis(k,V)+(1-vis(k,V))*-1
     w=np.clip(((z)-0.25)/0.75,0,1); w0=np.clip((z0-0.25)/0.75,0,1)
-    return np.array([(w if s<6 else w0)[lab==s].mean() for s in range(8)])
+    return BIAS.get(k,1)*np.array([(w if s<6 else w0)[lab==s].mean() for s in range(8)])
 Q={}
 for ch in CHAINS:
     for k in ch:
         for gi,G in enumerate(GS): Q[k,gi]=quality(k,G)
+CB=[[[max((Q[k,gi][sp],k) for k in ch) for sp in range(8)] for gi in range(12)] for ch in CHAINS]
 best=None
 for tw in itertools.product(range(12),repeat=len(CHAINS)):
     sel=[];tot=0
-    for s in range(8):
-        c=max((Q[k,tw[ci]][s],k,tw[ci]) for ci,ch in enumerate(CHAINS) for k in ch); sel.append(c); tot+=c[0]
+    for sp in range(8):
+        c=max((CB[ci][tw[ci]][sp][0],CB[ci][tw[ci]][sp][1],tw[ci]) for ci in range(len(CHAINS))); sel.append(c); tot+=c[0]
     if best is None or tot>best[0]: best=(tot,sel,tw)
 tot,sel,TW=best
 print('coverage %.2f/8'%tot)
@@ -61,15 +74,17 @@ json.dump([[float(q),k,int(g)] for q,k,g in sel],open('atlas_sel.json','w'))
 
 imgs={}
 def img(k):
-    if k not in imgs: imgs[k]=np.asarray(Image.open('../../../frames/%s.jpg'%k).convert('RGB')).astype(np.float32)
+    if k not in imgs: imgs[k]=np.asarray(Image.open('../../../frames/%s.%s'%(k,'png' if k=='p016' else 'jpg')).convert('RGB')).astype(np.float32)
     return imgs[k]
 def sample(k,gi,D):
     """paint (albedo at half scale) and visibility for directions D (...,3); mirror-aware flag handled by caller"""
-    cx,cy,r=[v*2 for v in circ[k]]; r*=0.985
+    cx,cy,r=[v*2 for v in circ[k]]; r*=0.985 if k!='p016' else 0.995
     V=D@(P[k]@GS[gi]).T; z=V[...,2]
     px=cx+V[...,0]*r; py=cy-V[...,1]*r
     c=np.stack([ndi.map_coordinates(img(k)[...,ch],[py,px],order=1,mode='nearest') for ch in range(3)],-1)
-    c/=2*np.maximum(np.interp(V@SL,SK,SG),0.12)[...,None]
+    if k=='p016':   # no shadow in this frame: paint is the frame at half scale; hide hand/background pixels
+        c/=2; z=np.where(PM[np.clip(py.astype(int),0,PM.shape[0]-1),np.clip(px.astype(int),0,PM.shape[1]-1)],z,-1)
+    else: c/=2*np.maximum(np.interp(V@SL,SK,SG),0.12)[...,None]
     return c,z
 atlas=np.zeros((ATLAS[1],ATLAS[0],3),np.float32)
 for cell in range(8):
@@ -104,6 +119,7 @@ if FLAT:   # flatten: edge-preserving smoothing keeps the ink and cel edges, eve
 CEL=int(sys.argv[3]) if len(sys.argv)>3 else 7
 if CEL:
     for cell in range(6):
+        if sel[cell][1]=='p016': continue   # already crisp cel art with no shadow: leave as is
         x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
         t=out[y0:y0+CELL[1],x0:x0+CELL[0]].copy()
         t=cv2.pyrMeanShiftFiltering(t,6,18)
