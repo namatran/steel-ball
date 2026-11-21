@@ -45,6 +45,7 @@ const params = {
   friction: 0.8, // how fast the spin settles back to the motor speed
   size: 1, // ball scale
   blur: true,
+  shadow: 0.25,
   streaks: true,
   diagram: false, // show the golden rectangle outside Golden Rotation too
   diagramSize: 2.3,
@@ -62,6 +63,7 @@ gui.add(params, 'lean', -90, 90, 1).name('Axis lean');
 gui.add(params, 'friction', 0.05, 3, 0.05).name('Settle rate');
 gui.add(params, 'size', 0.4, 1.3, 0.01).name('Ball size');
 gui.add(params, 'blur').name('Motion blur');
+gui.add(params, 'shadow', 0, 1, 0.01).name('Shadow strength').onChange((v) => (material.uniforms.uShadow.value = v));
 gui.add(params, 'streaks').name('Speed lines');
 gui.add(params, 'diagram').name('Golden rectangle');
 gui.add(params, 'diagramSize', 0.8, 3.5, 0.01).name('Rectangle size');

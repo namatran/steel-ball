@@ -115,6 +115,7 @@ const fragmentShader = /* glsl */ `
   varying vec3 vM1;
   varying vec3 vM2;
 
+  uniform float uShadow; // 0..1, how much of the baked-frame shadow to apply
   uniform float uG[9]; // baked-frame shadow curve over dot(S,L) = -1..1
   float shadowAt(float d) {
     float x = clamp((d * 0.5 + 0.5) * 8.0, 0.0, 7.9999);
@@ -171,7 +172,7 @@ const fragmentShader = /* glsl */ `
     // stays put while the ball (and its paint) turns.
     vec2 px = atlasPx(p, o);
     vec3 col = texture2D(uInk, vec2(px.x / ${ATLAS.w.toFixed(1)}, 1.0 - px.y / ${ATLAS.h.toFixed(1)})).rgb;
-    col *= 2.0 * shadowAt(dot(S, L));
+    col *= 2.0 * mix(1.0, shadowAt(dot(S, L)), uShadow); // paint is stored at half scale; 0 = fully lit, flat
     return col;
   }
 
@@ -239,6 +240,7 @@ export function createBall() {
       uAxis: { value: new THREE.Vector3(0, 1, 0) },
       uBlur: { value: 0 },
       uG: { value: SHADE.g },
+      uShadow: { value: 0.25 },
     },
   });
 
