@@ -95,9 +95,25 @@ for cell in range(8):
     atlas[y0:y0+CELL[1],x0:x0+CELL[0]]=c
     print('cell',cell,'seen %.2f'%ok.mean())
 out=np.clip(atlas,0,255).astype(np.uint8)
+GROOVE_R=float(sys.argv[2]) if len(sys.argv)>2 else 1.9
 FLAT=int(sys.argv[1]) if len(sys.argv)>1 else 0
 if FLAT:   # flatten: edge-preserving smoothing keeps the ink and cel edges, evens out frame noise
     for _ in range(FLAT): out=cv2.bilateralFilter(out,7,28,5)
+# clean grooves: the frames see grooves smeared and at odd angles, so the groove channels, lips and
+# ink lines on the panels come from the procedural starter art (starter.png, = `npm run ink`), the
+# traced paint stays everywhere else. Hexagon cells keep the traced grooves.
+st=np.asarray(Image.open('starter.png').convert('RGB')).astype(np.float32)
+SEGR=np.radians(60); GW=0.05*458.4
+sEC=np.pi/2-edge_theta(SEGR/2); slotEnd=EDGEY*(1-np.radians(9)/sEC)
+ys,xs=np.mgrid[0:CELL[1],0:CELL[0]].astype(float); lx=xs-PX; ly=ys-PY
+dx=np.minimum(lx,PW-lx); dSlot=np.where(ly>slotEnd,np.hypot(dx,ly-slotEnd),dx); dEdge=np.abs(EDGEY-ly)
+gd=np.minimum(dSlot,dEdge); gd=np.where((lx<0)|(lx>PW),-1,gd)
+A=np.clip((GW*GROOVE_R-gd)/(GW*0.35),0,1)[...,None]
+res=out.astype(np.float32)
+for cell in range(6):
+    x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
+    res[y0:y0+CELL[1],x0:x0+CELL[0]]=res[y0:y0+CELL[1],x0:x0+CELL[0]]*(1-A)+st[y0:y0+CELL[1],x0:x0+CELL[0]]*A
+out=np.clip(res,0,255).astype(np.uint8)
 Image.fromarray(out).save('../../src/assets/ink.png',optimize=True)
 json.dump(dict(L=SL.tolist(),g=SG.tolist()),open('../../src/assets/shade.json','w'))
 poses={k:[round(float(x),4) for x in Rot.from_matrix(P[k]@GS[TW[[i for i,ch in enumerate(CHAINS) if k in ch][0]]]).as_quat()] for ch in CHAINS for k in ch}
