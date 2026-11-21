@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { createBall, PHI, SHAPE_DEFAULTS, OPENING_POSE } from './ball.atlas.js';
 import { createShadow, createStreaks, createGoldenRect } from './effects.js';
+import { playHamon, stopHamon, setMuted } from './audio.js';
 
 const card = document.getElementById('card');
 const canvas = document.getElementById('scene');
@@ -72,6 +73,7 @@ const params = {
   streaks: true,
   hover: true, // gentle float up and down
   axis: false, // show the spin axis through the ball
+  sound: true, // Hamon sound loop during Golden Rotation
   diagram: false, // show the golden rectangle outside Golden Rotation too
   diagramSize: 2.3,
   ...SHAPE_DEFAULTS,
@@ -98,6 +100,7 @@ gui.add(params, 'shadow', 0, 1, 0.01).name('Shadow strength').onChange((v) => { 
 gui.add(params, 'streaks').name('Speed lines');
 gui.add(params, 'hover').name('Hover');
 gui.add(params, 'axis').name('Show axis');
+gui.add(params, 'sound').name('Hamon sound').onChange((v) => setMuted(!v));
 gui.add(params, 'diagram').name('Golden rectangle');
 gui.add(params, 'diagramSize', 0.8, 3.5, 0.01).name('Rectangle size');
 const shape = gui.addFolder('Shape');
@@ -150,6 +153,8 @@ function toggleGolden(fromToss = false) {
     tossed = false;
     params.speed = 0; // release: let it coast down
   }
+  if (golden.active) playHamon();
+  else stopHamon();
   goldenButton.name(golden.active ? '✦ Release' : '✦ Golden Rotation');
 }
 
