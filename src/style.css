@@ -91,3 +91,33 @@ html, body {
   pointer-events: auto;
 }
 .golden-chip:hover { background: #fff3c4; }
+
+/* Sound on/off: speaker icon in the card's bottom-right corner */
+.sound-button {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(42, 42, 40, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(6px);
+  color: #2a2a28;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sound-button:hover { background: #fff; }
+.sound-button svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sound-button svg path:first-child { stroke-width: 1; }

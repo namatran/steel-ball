@@ -73,7 +73,6 @@ const params = {
   streaks: true,
   hover: true, // gentle float up and down
   axis: false, // show the spin axis through the ball
-  sound: true, // Hamon sound loop while the ball spins
   diagram: false, // show the golden rectangle outside Golden Rotation too
   diagramSize: 2.3,
   ...SHAPE_DEFAULTS,
@@ -100,7 +99,6 @@ gui.add(params, 'shadow', 0, 1, 0.01).name('Shadow strength').onChange((v) => { 
 gui.add(params, 'streaks').name('Speed lines');
 gui.add(params, 'hover').name('Hover');
 gui.add(params, 'axis').name('Show axis');
-gui.add(params, 'sound').name('Hamon sound').onChange((v) => setMuted(!v));
 gui.add(params, 'diagram').name('Golden rectangle');
 gui.add(params, 'diagramSize', 0.8, 3.5, 0.01).name('Rectangle size');
 const shape = gui.addFolder('Shape');
@@ -234,6 +232,27 @@ function endDrag() {
 }
 canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
+
+// ---------- sound button ----------
+// Corner speaker button: mutes the hamon loop. Reset settings leaves it alone.
+const speakerOn = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" fill="none"/></svg>';
+const speakerOff = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6M21 9l-5 6" fill="none"/></svg>';
+const soundButton = document.createElement('button');
+soundButton.className = 'sound-button';
+let muted = false;
+function renderSound() {
+  soundButton.innerHTML = muted ? speakerOff : speakerOn;
+  soundButton.setAttribute('aria-label', muted ? 'Turn sound on' : 'Turn sound off');
+  soundButton.setAttribute('aria-pressed', String(muted));
+  soundButton.title = muted ? 'Sound off' : 'Sound on';
+}
+soundButton.addEventListener('click', () => {
+  muted = !muted;
+  setMuted(muted);
+  renderSound();
+});
+renderSound();
+card.appendChild(soundButton);
 
 // ---------- golden chip ----------
 // After a toss, a button hovers at the bottom while the ball still has momentum, to start the
