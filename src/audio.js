@@ -1,5 +1,6 @@
-// Hamon sound: a seamless ~3.5 s loop that fades in while Golden Rotation runs and out after.
-import hamonUrl from './assets/hamon-loop.mp3';
+// Hamon sound: a seamless ~1 s loop (3.0-4.0 s of the source clip) that fades in while
+// Golden Rotation runs and out after.
+import hamonUrl from './assets/hamon-loop.wav';
 
 const FADE_IN = 0.15; // seconds
 const FADE_OUT = 0.5;
@@ -9,7 +10,6 @@ let ctx = null;
 let gain = null;
 let source = null;
 let buffer = null;
-let loading = null;
 let wanted = false; // whether the sound should currently be playing
 let muted = false;
 
@@ -19,7 +19,7 @@ function setup() {
   gain = ctx.createGain();
   gain.gain.value = 0;
   gain.connect(ctx.destination);
-  loading = fetch(hamonUrl)
+  fetch(hamonUrl)
     .then((r) => r.arrayBuffer())
     .then((data) => ctx.decodeAudioData(data))
     .then((b) => {
