@@ -1,0 +1,6 @@
+node_modules
+dist
+__pycache__
+.DS_Store
+# derived half-res frames, regenerate with scripts/paint
+scripts/paint/half/
