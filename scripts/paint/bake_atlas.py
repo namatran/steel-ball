@@ -8,7 +8,8 @@ from lib import *
 from track import GS
 import json,sys,itertools,cv2
 from scipy.spatial.transform import Rotation as Rot
-ATLAS=(2048,1280); CELL=(512,640); PX,PY,PW,EDGEY,MAXY=16,16,480,528,580
+# cells 0-5 north panels, 6/7 hexagons, 8-13 south panels (no mirroring)
+ATLAS=(2048,2560); NC=14; CELL=(512,640); PX,PY,PW,EDGEY,MAXY=16,16,480,528,580
 HEXC=(256,256); HEXR=240; HPPU=458.4
 APO=np.radians(24); BUL=np.radians(78)
 circ=json.load(open('circles_new.json'))
@@ -41,7 +42,7 @@ def hex_dirs(south):
 
 def piece(D):
     g,plate,dp,k=groove(D); pan=np.mod(k,6).astype(int)
-    return np.where(plate>0,np.where(D[...,1]>0,6,7),pan)
+    return np.where(plate>0,np.where(D[...,1]>0,6,7),pan+np.where(D[...,1]<0,8,0))
 rng=np.random.default_rng(0)
 pts=rng.normal(size=(40000,3)); pts/=np.linalg.norm(pts,axis=1,keepdims=True); lab=piece(pts)
 mir=pts*np.array([1,-1,1])
@@ -55,20 +56,20 @@ def quality(k,G):
     R=P[k]@G; V=pts@R.T; Vm=mir@R.T
     z=np.maximum(V[:,2]*vis(k,V)+(1-vis(k,V))*-1,Vm[:,2]*vis(k,Vm)+(1-vis(k,Vm))*-1); z0=V[:,2]*vis(k,V)+(1-vis(k,V))*-1
     w=np.clip(((z)-0.25)/0.75,0,1); w0=np.clip((z0-0.25)/0.75,0,1)
-    return BIAS.get(k,1)*np.array([(w if s<6 else w0)[lab==s].mean() for s in range(8)])
+    return BIAS.get(k,1)*np.array([w0[lab==s].mean() for s in range(NC)])
 Q={}
 for ch in CHAINS:
     for k in ch:
         for gi,G in enumerate(GS): Q[k,gi]=quality(k,G)
-CB=[[[max((Q[k,gi][sp],k) for k in ch) for sp in range(8)] for gi in range(12)] for ch in CHAINS]
+CB=[[[max((Q[k,gi][sp],k) for k in ch) for sp in range(NC)] for gi in range(12)] for ch in CHAINS]
 best=None
 for tw in itertools.product(range(12),repeat=len(CHAINS)):
     sel=[];tot=0
-    for sp in range(8):
+    for sp in range(NC):
         c=max((CB[ci][tw[ci]][sp][0],CB[ci][tw[ci]][sp][1],tw[ci]) for ci in range(len(CHAINS))); sel.append(c); tot+=c[0]
     if best is None or tot>best[0]: best=(tot,sel,tw)
 tot,sel,TW=best
-print('coverage %.2f/8'%tot)
+print('coverage %.2f/%d'%(tot,NC))
 for s,(q,k,gi) in enumerate(sel): print('piece',s,'<-',k,'twin',gi,'head-on %.2f'%q)
 json.dump([[float(q),k,int(g)] for q,k,g in sel],open('atlas_sel.json','w'))
 
@@ -87,15 +88,15 @@ def sample(k,gi,D):
     else: c/=2*np.maximum(np.interp(V@SL,SK,SG),0.12)[...,None]
     return c,z
 atlas=np.zeros((ATLAS[1],ATLAS[0],3),np.float32)
-for cell in range(8):
+PANEL_CELLS=[c for c in range(NC) if c<6 or c>=8]
+for cell in range(NC):
     q,k,gi=sel[cell]
-    D=panel_dirs(cell) if cell<6 else hex_dirs(cell==7)
+    if cell<6: D=panel_dirs(cell)
+    elif cell<8: D=hex_dirs(cell==7)
+    else: D=panel_dirs(cell-8)*np.array([1,-1,1])   # south half of panel cell-8, painted on its own
     c,z=sample(k,gi,D)
-    if cell<6:
-        c2,z2=sample(k,gi,D*np.array([1,-1,1]))
-        use2=z2>z; c=np.where(use2[...,None],c2,c); z=np.maximum(z,z2)
     ok=z>0.30
-    if cell>=6:
+    if cell in (6,7):
         ys,xs=np.mgrid[0:CELL[1],0:CELL[0]]; ok&=np.hypot(xs-HEXC[0],ys-HEXC[1])<HEXR
     sg=40; sn=ok
     num=np.stack([ndi.gaussian_filter(c[...,i]*sn,sg) for i in range(3)],-1); den=ndi.gaussian_filter(sn.astype(float),sg)
@@ -118,7 +119,7 @@ if FLAT:   # flatten: edge-preserving smoothing keeps the ink and cel edges, eve
 # The atlas holds paint at half scale (the shader doubles it), so store it halved.
 import os
 POL=set()
-for cell in range(6):
+for cell in range(NC):
     p='../../polish/out/cell%d.png'%cell
     if os.path.exists(p):
         x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
@@ -127,7 +128,7 @@ for cell in range(6):
 # a median pass rounds the shape edges. argv[3] = colours per panel (0 = off).
 CEL=int(sys.argv[3]) if len(sys.argv)>3 else 7
 if CEL:
-    for cell in range(6):
+    for cell in PANEL_CELLS:
         if sel[cell][1]=='p016' or cell in POL: continue   # already crisp cel art with no shadow: leave as is
         x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
         t=out[y0:y0+CELL[1],x0:x0+CELL[0]].copy()
@@ -144,12 +145,12 @@ if CEL:
 def lit_level(cell):
     x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]; t=out[y0:y0+CELL[1],x0:x0+CELL[0]].astype(np.float32)
     L=t@np.array([0.3,0.59,0.11],np.float32)
-    if cell<6: m=np.zeros(L.shape,bool); m[PY:PY+EDGEY-30,PX+40:PX+PW-40]=True
+    if cell<6 or cell>=8: m=np.zeros(L.shape,bool); m[PY:PY+EDGEY-30,PX+40:PX+PW-40]=True
     else:
         yy,xx=np.mgrid[0:CELL[1],0:CELL[0]]; m=np.hypot(xx-HEXC[0],yy-HEXC[1])<HEXR*0.75
     return np.percentile(L[m],70)
-LV=[lit_level(c) for c in range(8)]; TARGET=float(np.median(LV)); print('lit levels',np.round(LV,1),'target %.1f'%TARGET)
-for cell in range(8):
+LV=[lit_level(c) for c in range(NC)]; TARGET=float(np.median(LV)); print('lit levels',np.round(LV,1),'target %.1f'%TARGET)
+for cell in range(NC):
     g=np.clip(TARGET/LV[cell],0.6,1.5); x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
     out[y0:y0+CELL[1],x0:x0+CELL[0]]=np.clip(out[y0:y0+CELL[1],x0:x0+CELL[0]].astype(np.float32)*g,0,255).astype(np.uint8)
 # clean grooves: the frames see grooves smeared and at odd angles, so the groove channels, lips and
@@ -163,9 +164,10 @@ dx=np.minimum(lx,PW-lx); dSlot=np.where(ly>slotEnd,np.hypot(dx,ly-slotEnd),dx); 
 gd=np.minimum(dSlot,dEdge); gd=np.where((lx<0)|(lx>PW),-1,gd)
 A=np.clip((GW*GROOVE_R-gd)/(GW*0.35),0,1)[...,None]
 res=out.astype(np.float32)
-for cell in range(6):
+for cell in PANEL_CELLS:
     x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
-    res[y0:y0+CELL[1],x0:x0+CELL[0]]=res[y0:y0+CELL[1],x0:x0+CELL[0]]*(1-A)+st[y0:y0+CELL[1],x0:x0+CELL[0]]*A
+    sy0=((cell-8 if cell>=8 else cell)//4)*CELL[1]; sx0=((cell-8 if cell>=8 else cell)%4)*CELL[0]
+    res[y0:y0+CELL[1],x0:x0+CELL[0]]=res[y0:y0+CELL[1],x0:x0+CELL[0]]*(1-A)+st[sy0:sy0+CELL[1],sx0:sx0+CELL[0]]*A
 out=np.clip(res,0,255).astype(np.uint8)
 Image.fromarray(out).save('../../src/assets/ink.png',optimize=True)
 json.dump(dict(L=SL.tolist(),g=SG.tolist()),open('../../src/assets/shade.json','w'))

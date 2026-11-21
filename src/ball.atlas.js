@@ -148,7 +148,7 @@ const fragmentShader = /* glsl */ `
     float edge = atan(ea, eb) + acos(clamp(cos(uBulge) / length(vec2(ea, eb)), -1.0, 1.0));
     float s = abs(acos(clamp(p.y, -1.0, 1.0)) - PI * 0.5);
     float v = s / max(PI * 0.5 - edge, 0.01);
-    float cell = mod(o.id, 6.0);
+    float cell = mod(o.id, 6.0) + (p.y < 0.0 ? 8.0 : 0.0); // south half has its own cells 8-13
     vec2 local = vec2(${PANEL.x.toFixed(1)} + (0.5 + o.dp / SEG) * ${PANEL.w.toFixed(1)},
                       min(${PANEL.y.toFixed(1)} + v * ${PANEL.edgeY.toFixed(1)}, ${PANEL.maxY.toFixed(1)}));
     return vec2(mod(cell, 4.0) * ${CELL.w.toFixed(1)}, floor(cell / 4.0) * ${CELL.h.toFixed(1)}) + local;

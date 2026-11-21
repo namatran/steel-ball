@@ -10,10 +10,9 @@ so paint everything opaque; only the shadow changes as the ball turns.
 3. Hide the template, export the paint layer as `src/assets/ink.png` (RGBA, same size).
    Export it opaque, full colour.
 
-Cells (512×640 each, 4 per row): top row and the first two of the second row are
-panels 0–5 (each painted separately; the north and south halves of a panel share
-the paint, mirrored at the equator). The last two cells are the north and south
-hexagons. Panel cells: slots run down the left and right edges, the hexagon groove is
+Cells (512×640 each, 4 per row, atlas 2048×2560): cells 0–5 are the six panels' north
+halves, cells 6 and 7 the north and south hexagons, cells 8–13 the same six panels' south
+halves (cell 8 + panel). Nothing is mirrored: every half is painted on its own. Panel cells: slots run down the left and right edges, the hexagon groove is
 the horizontal line near the bottom, the equator is the top edge.
 
 `npm run ink` regenerates both PNGs (starter art) and overwrites your paint.
