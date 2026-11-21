@@ -277,7 +277,7 @@ function tick() {
   }
 
   const speed = omega.length();
-  setSpinAmount(golden.active ? 1 : THREE.MathUtils.smoothstep(speed, 0.5, 6), dt);
+  setSpinAmount(golden.active ? 1 : THREE.MathUtils.smoothstep(speed, 1.7, 20), dt); // ~0.5 volume at 100 rpm, full at ~190 rpm
   if (speed > 1e-3) {
     spinAxis.copy(omega).divideScalar(speed);
     rotateBall(spinAxis, speed * dt);
