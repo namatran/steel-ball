@@ -66,3 +66,28 @@ html, body {
   overflow: hidden;
   backdrop-filter: blur(6px);
 }
+
+/* "Golden Spin" chip: fades in at the bottom of the card while the ball is coasting */
+.golden-chip {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translate(-50%, 8px);
+  padding: 9px 18px;
+  border: 1px solid #c9a227;
+  border-radius: 999px;
+  background: rgba(255, 250, 230, 0.92);
+  color: #6b5200;
+  font: 600 13px/1 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+  box-shadow: 0 2px 10px rgba(40, 40, 30, 0.18);
+}
+.golden-chip.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+.golden-chip:hover { background: #fff3c4; }
