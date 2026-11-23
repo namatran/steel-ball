@@ -4,6 +4,10 @@ import { createBall, PHI, SHAPE_DEFAULTS, OPENING_POSE } from './ball.atlas.js';
 import { createShadow, createStreaks, createGoldenRect } from './effects.js';
 import { unlockHamon, setSpinAmount, setMuted } from './audio.js';
 
+// ?embed: compact mode for iframes (no caption, card fills the frame, controls collapsed).
+const embedded = new URLSearchParams(location.search).has('embed');
+document.documentElement.classList.toggle('embed', embedded);
+
 const card = document.getElementById('card');
 const canvas = document.getElementById('scene');
 const readout = document.getElementById('readout');
@@ -109,6 +113,7 @@ gui.add(params, 'hover').name('Hover');
 gui.add(params, 'axis').name('Show axis');
 gui.add(params, 'diagram').name('Golden rectangle');
 gui.add(params, 'diagramSize', 0.8, 3.5, 0.01).name('Rectangle size');
+if (embedded) gui.close();
 const shape = gui.addFolder('Shape');
 const deg = THREE.MathUtils.degToRad;
 shape.add(params, 'plate', 14, 34, 0.5).name('Hexagon size').onChange((v) => (material.uniforms.uApothem.value = deg(v)));
