@@ -13,6 +13,10 @@ const IDLE_STOP = 1; // seconds of silence before the loop sources are torn down
 
 let ctx = null;
 let master = null;
+const THROW_HOLD = 1; // seconds a throw's opening sound is held before it follows the spin
+const THROW_FADE = 0.25; // seconds: time constant of the hand-over to the spin's own loudness
+let throwLevel = 0; // 0..1, loudness held right after a throw so the opening isn't cut short
+let throwAge = Infinity; // seconds since the throw
 let amount = 0; // 0..1, how loud the spin wants it
 let muted = false;
 let silentFor = 0;
@@ -65,7 +69,9 @@ function stopLoop(t) {
 // Call every frame. value: 0..1 spin loudness (0 = at rest). goldenMix: 0..1, how far the spin
 // is past hamon's full-volume speed (0 = hamon only, 1 = golden loop only). dt in seconds.
 export function setSpinAmount(value, goldenMix, dt) {
-  amount = value;
+  throwAge += dt;
+  if (throwAge > THROW_HOLD) throwLevel *= Math.exp(-dt / THROW_FADE);
+  amount = Math.max(value, throwLevel);
   if (!ctx || ctx.state !== 'running') return;
   if (amount > 0.001) {
     silentFor = 0;
@@ -78,6 +84,13 @@ export function setSpinAmount(value, goldenMix, dt) {
   tracks.hamon.gain.gain.setTargetAtTime(Math.cos(a), ctx.currentTime, SMOOTH);
   tracks.golden.gain.gain.setTargetAtTime(Math.sin(a) * tracks.golden.level, ctx.currentTime, SMOOTH);
   master.gain.setTargetAtTime(muted ? 0 : amount * LEVEL, ctx.currentTime, SMOOTH);
+}
+
+// Call when the ball is thrown, with 0..1 for how hard: the opening sound is held for a moment
+// so it isn't cut off, then follows the spin as usual (nothing lingers once the spin is done).
+export function throwSound(strength) {
+  throwLevel = strength;
+  throwAge = 0;
 }
 
 export function setMuted(value) {
