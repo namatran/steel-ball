@@ -155,7 +155,16 @@ for cell in range(NC):
     out[y0:y0+CELL[1],x0:x0+CELL[0]]=np.clip(out[y0:y0+CELL[1],x0:x0+CELL[0]].astype(np.float32)*g,0,255).astype(np.uint8)
 # equator seam: a panel's north cell k and south cell 8+k meet along their top edge (y=PY). They are painted
 # apart now, so blend them toward each other over SEAM px so the paint is continuous across the equator.
-SEAM=int(os.environ.get('SEAM','72'))
+# first match each pair's overall light level near the equator (one gain per cell), so a light north half
+# doesn't meet a dark south half; then the cross-fade below only has to handle shapes.
+BAND=slice(PY,PY+100); BX=slice(PX+40,PX+PW-40)
+for k in range(6):
+    xn,yn=(k%4)*CELL[0],(k//4)*CELL[1]; xs_,ys_=((k+8)%4)*CELL[0],((k+8)//4)*CELL[1]
+    N=out[yn:yn+CELL[1],xn:xn+CELL[0]].astype(np.float32); S=out[ys_:ys_+CELL[1],xs_:xs_+CELL[0]].astype(np.float32)
+    ln=N[BAND,BX].mean(); ls=S[BAND,BX].mean(); r=np.clip(ls/ln,0.5,2.0); print('pair',k,'equator light N %.0f S %.0f'%(ln,ls))
+    gn,gs=np.sqrt(r),1/np.sqrt(r)
+    out[yn:yn+CELL[1],xn:xn+CELL[0]]=np.clip(N*gn,0,255).astype(np.uint8); out[ys_:ys_+CELL[1],xs_:xs_+CELL[0]]=np.clip(S*gs,0,255).astype(np.uint8)
+SEAM=int(os.environ.get('SEAM','120'))
 w=np.clip(1-(np.arange(CELL[1])-PY)/SEAM,0,1)[:,None,None]; w=w*w*(3-2*w)*0.5   # 0.5 at the equator = the average
 for k in range(6):
     xn,yn=(k%4)*CELL[0],(k//4)*CELL[1]; xs_,ys_=((k+8)%4)*CELL[0],((k+8)//4)*CELL[1]
