@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Embed test: Steel Ball</title>
+    <style>
+      body { margin: 0; background: #0e0e0e; color: #cfcfc8; font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
+      main { max-width: 760px; margin: 0 auto; padding: 48px 16px 96px; }
+      h1 { font-size: 22px; margin: 0 0 6px; }
+      p { color: #8a8a85; margin: 0 0 20px; }
+      .demo { position: relative; aspect-ratio: 4 / 3; border-radius: 14px; overflow: hidden; background: #f6f4ee; }
+      .demo iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+      .popout { display: inline-block; margin-top: 12px; color: #cfcfc8; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Steel Ball</h1>
+      <p>A three.js recreation of the Steel Ball Run opening ball. Drag to toss it.</p>
+      <div class="demo">
+        <iframe src="/?embed" title="Steel Ball demo" loading="lazy" allow="autoplay"></iframe>
+      </div>
+      <a class="popout" href="/" target="_blank" rel="noopener">Open full screen ↗</a>
+    </main>
+  </body>
+</html>
