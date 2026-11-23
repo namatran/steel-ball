@@ -257,7 +257,8 @@ const speakerOn = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4
 const speakerOff = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9l5 6M21 9l-5 6" fill="none"/></svg>';
 const soundButton = document.createElement('button');
 soundButton.className = 'sound-button';
-let muted = false;
+let muted = embedded; // embeds start silent; the button turns sound on
+setMuted(muted);
 function renderSound() {
   soundButton.innerHTML = muted ? speakerOff : speakerOn;
   soundButton.setAttribute('aria-label', muted ? 'Turn sound on' : 'Turn sound off');
@@ -291,7 +292,19 @@ let hoverAmt = 1;
 const rpmFormat = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }); // 1.2M rpm
 const zAxis = new THREE.Vector3(0, 0, 1);
 
+// Embed: tell the host after the first frame (it hides its poster), and idle while scrolled offscreen.
+let readySent = false;
+let onscreen = true;
+if (embedded && 'IntersectionObserver' in window) {
+  new IntersectionObserver(([e]) => {
+    const was = onscreen;
+    onscreen = e.isIntersecting;
+    if (onscreen && !was) { clock.getDelta(); requestAnimationFrame(tick); }
+  }).observe(canvas);
+}
+
 function tick() {
+  if (!onscreen) return;
   const dt = Math.min(clock.getDelta(), 1 / 30);
   const time = clock.elapsedTime;
 
@@ -382,6 +395,7 @@ function tick() {
   readout.textContent = golden.active ? `φ^${golden.step} · ${rpm} rpm` : `${rpm} rpm`;
 
   renderer.render(scene, camera);
+  if (embedded && !readySent) { readySent = true; parent.postMessage({ type: 'steel-ball:ready' }, '*'); }
   requestAnimationFrame(tick);
 }
 
