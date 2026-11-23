@@ -1,8 +1,8 @@
 // Spin sound: two seamless ~1 s loops whose volume follows the ball's spin: silent at rest,
 // full during Golden Rotation.
-//   hamon  - 3.0-4.0 s of the source video's clip: plays for any ordinary spin
+//   hamon  - 3.0-4.0 s of the source video's clip: plays from rest up to full speed
 //   golden - the "Spinning | Free Sound Effect" whoosh (YouTube AWbNJVsW-ig): the golden-ratio
-//            noise, which takes over from hamon as Golden Rotation winds up
+//            noise, which takes over from hamon once the spin passes hamon's full volume
 import hamonUrl from './assets/hamon-loop.wav';
 import goldenUrl from './assets/spinning-loop.wav';
 
@@ -62,8 +62,8 @@ function stopLoop(t) {
   t.source = null;
 }
 
-// Call every frame. value: 0..1 spin loudness (0 = at rest). goldenMix: 0..1, how far into
-// Golden Rotation (0 = hamon only, 1 = golden loop only). dt in seconds.
+// Call every frame. value: 0..1 spin loudness (0 = at rest). goldenMix: 0..1, how far the spin
+// is past hamon's full-volume speed (0 = hamon only, 1 = golden loop only). dt in seconds.
 export function setSpinAmount(value, goldenMix, dt) {
   amount = value;
   if (!ctx || ctx.state !== 'running') return;

@@ -312,7 +312,13 @@ function tick() {
   }
 
   const speed = omega.length();
-  setSpinAmount(golden.active ? 1 : THREE.MathUtils.smoothstep(speed, 1.7, 20), golden.glow, dt); // ~0.5 volume at 100 rpm, full at ~190 rpm
+  // Hamon is full at ~190 rpm (20 rad/s); past that the spinning whoosh takes over, finished by
+  // golden step 7 (~510 rpm), so Golden Rotation starts on hamon and winds up into the whoosh.
+  setSpinAmount(
+    golden.active ? 1 : THREE.MathUtils.smoothstep(speed, 1.7, 20), // ~0.5 volume at 100 rpm
+    THREE.MathUtils.smoothstep(speed, 20, 54),
+    dt,
+  );
   if (speed > 1e-3) {
     spinAxis.copy(omega).divideScalar(speed);
     rotateBall(spinAxis, speed * dt);
