@@ -292,6 +292,9 @@ let hoverAmt = 1;
 const rpmFormat = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }); // 1.2M rpm
 const zAxis = new THREE.Vector3(0, 0, 1);
 
+// Embed: focus inside the iframe swallows Escape, so hand it to the host (which closes its lightbox).
+if (embedded) addEventListener('keydown', (e) => { if (e.key === 'Escape') parent.postMessage({ type: 'steel-ball:close' }, '*'); });
+
 // Embed: tell the host after the first frame (it hides its poster), and idle while scrolled offscreen.
 let readySent = false;
 let onscreen = true;
