@@ -149,9 +149,9 @@ def lit_level(cell):
     else:
         yy,xx=np.mgrid[0:CELL[1],0:CELL[0]]; m=np.hypot(xx-HEXC[0],yy-HEXC[1])<HEXR*0.75
     return np.percentile(L[m],70)
-LV=[lit_level(c) for c in range(NC)]; TARGET=float(np.median(LV)); print('lit levels',np.round(LV,1),'target %.1f'%TARGET)
+LV=[lit_level(c) for c in range(NC)]; TARGET=float(np.median([LV[c] for c in POL] or LV));   # polished art is already consistent: match the rest to it, print('lit levels',np.round(LV,1),'target %.1f'%TARGET)
 for cell in range(NC):
-    g=np.clip(TARGET/LV[cell],0.6,2.2); x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
+    g=1.0 if cell in POL else np.clip(TARGET/LV[cell],0.6,2.2); x0,y0=(cell%4)*CELL[0],(cell//4)*CELL[1]
     out[y0:y0+CELL[1],x0:x0+CELL[0]]=np.clip(out[y0:y0+CELL[1],x0:x0+CELL[0]].astype(np.float32)*g,0,255).astype(np.uint8)
 # equator seam: a panel's north cell k and south cell 8+k meet along their top edge (y=PY). They are painted
 # apart now, so blend them toward each other over SEAM px so the paint is continuous across the equator.
