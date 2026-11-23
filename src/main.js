@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { createBall, PHI, SHAPE_DEFAULTS, OPENING_POSE } from './ball.atlas.js';
 import { createShadow, createStreaks, createGoldenRect } from './effects.js';
-import { unlockHamon, setSpinAmount, setMuted, ringOut } from './audio.js';
+import { unlockHamon, setSpinAmount, setMuted } from './audio.js';
 
 // ?embed: compact mode for iframes (no caption, card fills the frame, controls collapsed).
 const embedded = new URLSearchParams(location.search).has('embed');
@@ -245,7 +245,6 @@ function endDrag() {
   // Holding still before letting go means no flick.
   const idle = performance.now() - drag.time > 80;
   omega.copy(idle ? target.set(0, 0, 0) : drag.velocity).clampLength(0, 90);
-  ringOut(THREE.MathUtils.smoothstep(omega.length(), 1.7, 20)); // a toss rings on past the spin
 }
 canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);
