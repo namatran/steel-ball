@@ -3,25 +3,109 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Embed test: Steel Ball</title>
+    <title>Portfolio host test: Steel Ball</title>
+    <!-- Dev-only mock of a portfolio "Lab" grid. Pattern: Demo-tagged tile -> lightbox -> iframe, poster until ready. -->
     <style>
-      body { margin: 0; background: #0e0e0e; color: #cfcfc8; font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
-      main { max-width: 760px; margin: 0 auto; padding: 48px 16px 96px; }
-      h1 { font-size: 22px; margin: 0 0 6px; }
-      p { color: #8a8a85; margin: 0 0 20px; }
-      .demo { position: relative; aspect-ratio: 4 / 3; border-radius: 14px; overflow: hidden; background: #f6f4ee; }
-      .demo iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-      .popout { display: inline-block; margin-top: 12px; color: #cfcfc8; }
+      :root { --bg: #fbfbfa; --fg: #1c1c1a; --muted: #8a8a85; --tile: #ececea; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #0e0e0e; --fg: #e8e8e3; --muted: #7d7d78; --tile: #1b1b1a; } }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
+      main { max-width: 760px; margin: 0 auto; padding: 64px 16px 96px; }
+      h1 { font-size: 16px; font-weight: 500; margin: 0; }
+      .sub { color: var(--muted); margin: 0 0 56px; }
+      h2 { font-size: 16px; font-weight: 500; margin: 0 0 16px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+      .tile { position: relative; padding: 0; border: 0; border-radius: 12px; overflow: hidden; cursor: pointer;
+        background: var(--tile); aspect-ratio: 4 / 3; color: inherit; font: inherit; }
+      .tile img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s ease; }
+      .tile:hover img, .tile:focus-visible img { transform: scale(1.03); }
+      .tile:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+      .tag { position: absolute; top: 10px; left: 10px; font-size: 11px; line-height: 1; padding: 5px 8px; border-radius: 99px;
+        background: rgba(255,255,255,.85); color: #1c1c1a; backdrop-filter: blur(6px); }
+      .label { margin: 8px 2px 0; font-size: 13px; color: var(--muted); }
+
+      /* lightbox */
+      .viewer { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px;
+        background: rgba(0,0,0,.72); opacity: 0; visibility: hidden; transition: opacity .25s ease, visibility .25s; }
+      .viewer.open { opacity: 1; visibility: visible; }
+      .viewer-inner { width: min(900px, 100%); }
+      .stage { position: relative; aspect-ratio: 4 / 3; max-height: calc(100vh - 120px); margin: 0 auto; border-radius: 14px; overflow: hidden; background: #f6f4ee;
+        transform: scale(.97); transition: transform .25s ease; }
+      .viewer.open .stage { transform: none; }
+      .stage iframe, .stage img { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+      .stage img { object-fit: cover; transition: opacity .3s ease; pointer-events: none; }
+      .stage[data-ready="true"] img { opacity: 0; }
+      .bar { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; color: #d8d8d2; font-size: 14px; }
+      .bar a, .bar button { color: inherit; background: none; border: 0; font: inherit; cursor: pointer; text-decoration: none; padding: 4px 0; }
+      .bar a:hover, .bar button:hover { text-decoration: underline; }
+      @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
     </style>
   </head>
   <body>
     <main>
-      <h1>Steel Ball</h1>
-      <p>A three.js recreation of the Steel Ball Run opening ball. Drag to toss it.</p>
-      <div class="demo">
-        <iframe src="/?embed" title="Steel Ball demo" loading="lazy" allow="autoplay"></iframe>
+      <h1>Portfolio host (test)</h1>
+      <p class="sub">Local mock of a Lab grid for the Steel Ball embed.</p>
+      <h2>Experiments &amp; Lab</h2>
+      <div class="grid">
+        <div>
+          <button class="tile" id="open" type="button" aria-label="Open Steel Ball demo">
+            <img src="/poster.jpg" alt="" width="640" height="480" />
+            <span class="tag">Demo</span>
+          </button>
+          <p class="label">Steel Ball</p>
+        </div>
       </div>
-      <a class="popout" href="/" target="_blank" rel="noopener">Open full screen ↗</a>
     </main>
+
+    <div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="Steel Ball demo" aria-hidden="true">
+      <div class="viewer-inner">
+        <div class="stage" id="stage">
+          <iframe id="frame" title="Steel Ball interactive demo" allow="autoplay"></iframe>
+          <img src="/poster.jpg" alt="" />
+        </div>
+        <div class="bar">
+          <span>Steel Ball: drag to toss</span>
+          <span>
+            <a href="/" target="_blank" rel="noopener">Open full screen ↗</a>
+            &nbsp;&nbsp;<button type="button" id="close">Close ✕</button>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const viewer = document.getElementById('viewer');
+      const stage = document.getElementById('stage');
+      const frame = document.getElementById('frame');
+      const opener = document.getElementById('open');
+      const SRC = '/?embed';
+      let loaded = false;
+
+      function open(push = true) {
+        if (!loaded) { frame.src = SRC; loaded = true; } // iframe loads on first open only
+        viewer.classList.add('open');
+        viewer.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        if (push) history.pushState(null, '', '#steel-ball'); // deep link, like /lab/<slug>
+        document.getElementById('close').focus();
+      }
+      function close(pop = true) {
+        viewer.classList.remove('open');
+        viewer.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        if (pop && location.hash === '#steel-ball') history.back();
+        opener.focus();
+      }
+      // The embed posts this after its first rendered frame; until then the poster covers the iframe.
+      addEventListener('message', (e) => {
+        if (e.source === frame.contentWindow && e.data && e.data.type === 'steel-ball:ready') stage.dataset.ready = 'true';
+      });
+      opener.addEventListener('click', () => open());
+      document.getElementById('close').addEventListener('click', () => close());
+      viewer.addEventListener('click', (e) => { if (e.target === viewer) close(); });
+      addEventListener('keydown', (e) => { if (e.key === 'Escape' && viewer.classList.contains('open')) close(); });
+      addEventListener('popstate', () => (location.hash === '#steel-ball' ? open(false) : close(false)));
+      if (location.hash === '#steel-ball') open(false);
+    </script>
   </body>
 </html>
