@@ -13,6 +13,8 @@ const IDLE_STOP = 1; // seconds of silence before the loop sources are torn down
 
 let ctx = null;
 let master = null;
+const RING_TAU = 2.2; // seconds: how slowly a toss's ring fades (volume then falls to the spin's own)
+let ring = 0; // 0..1, a toss's lingering loudness: holds the sound up while the spin dies away
 let amount = 0; // 0..1, how loud the spin wants it
 let muted = false;
 let silentFor = 0;
@@ -65,7 +67,8 @@ function stopLoop(t) {
 // Call every frame. value: 0..1 spin loudness (0 = at rest). goldenMix: 0..1, how far the spin
 // is past hamon's full-volume speed (0 = hamon only, 1 = golden loop only). dt in seconds.
 export function setSpinAmount(value, goldenMix, dt) {
-  amount = value;
+  ring *= Math.exp(-dt / RING_TAU);
+  amount = Math.max(value, ring);
   if (!ctx || ctx.state !== 'running') return;
   if (amount > 0.001) {
     silentFor = 0;
@@ -78,6 +81,12 @@ export function setSpinAmount(value, goldenMix, dt) {
   tracks.hamon.gain.gain.setTargetAtTime(Math.cos(a), ctx.currentTime, SMOOTH);
   tracks.golden.gain.gain.setTargetAtTime(Math.sin(a) * tracks.golden.level, ctx.currentTime, SMOOTH);
   master.gain.setTargetAtTime(muted ? 0 : amount * LEVEL, ctx.currentTime, SMOOTH);
+}
+
+// Call when the ball is tossed, with 0..1 for how hard: the sound rings on, fading slowly,
+// on top of the whirring instead of dropping with the spin.
+export function ringOut(strength) {
+  ring = Math.max(ring, strength);
 }
 
 export function setMuted(value) {
