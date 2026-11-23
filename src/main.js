@@ -83,9 +83,17 @@ const params = {
 
 // Any tilt/lean slider move flashes the axis rod and marks the axis as the user's own.
 let axisTouched = false;
+const sliderAxis = new THREE.Vector3(); // motor axis the sliders gave last time we looked
+const newSliderAxis = new THREE.Vector3();
+const sliderTurn = new THREE.Quaternion();
 function onAxisSlider() {
   axisFlash = 1.4;
   axisTouched = true;
+  // A toss-started spin keeps its own axis, so a slider move turns that axis by the same
+  // rotation the slider's own axis just made (speed lines follow the spin axis).
+  motorAxis(newSliderAxis);
+  if (tossed) tossDir.applyQuaternion(sliderTurn.setFromUnitVectors(sliderAxis, newSliderAxis));
+  sliderAxis.copy(newSliderAxis);
 }
 
 const gui = new GUI({ container: card, title: 'Spin' });
@@ -135,7 +143,10 @@ function toggleGolden(fromToss = false) {
     golden.step = now > GOLDEN_BASE ? Math.ceil(Math.log(now / GOLDEN_BASE) / Math.log(PHI)) : 0;
     golden.t = golden.step / PHI;
     tossed = fromToss && now > 0.5;
-    if (tossed) tossDir.copy(omega).normalize();
+    if (tossed) {
+      tossDir.copy(omega).normalize();
+      motorAxis(sliderAxis); // slider moves from here on turn the toss axis
+    }
     savedAxis.auto = !axisTouched && !tossed;
     if (savedAxis.auto) {
       savedAxis.tilt = params.tilt;
