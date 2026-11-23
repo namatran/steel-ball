@@ -245,7 +245,8 @@ function endDrag() {
   // Holding still before letting go means no flick.
   const idle = performance.now() - drag.time > 80;
   omega.copy(idle ? target.set(0, 0, 0) : drag.velocity).clampLength(0, 90);
-  throwSound(THREE.MathUtils.smoothstep(omega.length(), 1.7, 20)); // hold the opening sound a moment
+  // hold the opening sound a moment; a hard throw's whoosh rings on over the whirring
+  throwSound(THREE.MathUtils.smoothstep(omega.length(), 1.7, 20), THREE.MathUtils.smoothstep(omega.length(), 20, 54));
 }
 canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', endDrag);

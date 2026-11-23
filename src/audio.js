@@ -13,9 +13,10 @@ const IDLE_STOP = 1; // seconds of silence before the loop sources are torn down
 
 let ctx = null;
 let master = null;
-const THROW_HOLD = 1; // seconds a throw's opening sound is held before it follows the spin
-const THROW_FADE = 0.25; // seconds: time constant of the hand-over to the spin's own loudness
+const THROW_HOLD = 0.8; // seconds a throw's opening sound is held before it follows the spin
+const THROW_FADE = 0.5; // seconds: time constant of the hand-over to the spin's own loudness
 let throwLevel = 0; // 0..1, loudness held right after a throw so the opening isn't cut short
+let throwWhoosh = 0; // 0..1, the throw's whoosh: rings on over the whirring while the spin slows
 let throwAge = Infinity; // seconds since the throw
 let amount = 0; // 0..1, how loud the spin wants it
 let muted = false;
@@ -70,7 +71,10 @@ function stopLoop(t) {
 // is past hamon's full-volume speed (0 = hamon only, 1 = golden loop only). dt in seconds.
 export function setSpinAmount(value, goldenMix, dt) {
   throwAge += dt;
-  if (throwAge > THROW_HOLD) throwLevel *= Math.exp(-dt / THROW_FADE);
+  if (throwAge > THROW_HOLD) {
+    throwLevel *= Math.exp(-dt / THROW_FADE);
+    throwWhoosh *= Math.exp(-dt / THROW_FADE);
+  }
   amount = Math.max(value, throwLevel);
   if (!ctx || ctx.state !== 'running') return;
   if (amount > 0.001) {
@@ -79,17 +83,22 @@ export function setSpinAmount(value, goldenMix, dt) {
   } else if ((silentFor += dt) > IDLE_STOP) {
     for (const t of Object.values(tracks)) stopLoop(t);
   }
-  // Equal-power crossfade, so the blend doesn't dip in the middle.
-  const a = goldenMix * Math.PI / 2;
-  tracks.hamon.gain.gain.setTargetAtTime(Math.cos(a), ctx.currentTime, SMOOTH);
-  tracks.golden.gain.gain.setTargetAtTime(Math.sin(a) * tracks.golden.level, ctx.currentTime, SMOOTH);
+  // Hamon fades out equal-power as the spin goes past it; the whoosh follows the same mix but a
+  // throw's whoosh is held a little longer, ringing on top of hamon as the spin slows.
+  const h = Math.cos(goldenMix * Math.PI / 2);
+  const w = Math.sin(Math.max(goldenMix, throwWhoosh) * Math.PI / 2) * tracks.golden.level;
+  const norm = 1 / Math.max(1, Math.hypot(h, w)); // both audible: keep the sum from clipping
+  tracks.hamon.gain.gain.setTargetAtTime(h * norm, ctx.currentTime, SMOOTH);
+  tracks.golden.gain.gain.setTargetAtTime(w * norm, ctx.currentTime, SMOOTH);
   master.gain.setTargetAtTime(muted ? 0 : amount * LEVEL, ctx.currentTime, SMOOTH);
 }
 
-// Call when the ball is thrown, with 0..1 for how hard: the opening sound is held for a moment
-// so it isn't cut off, then follows the spin as usual (nothing lingers once the spin is done).
-export function throwSound(strength) {
+// Call when the ball is thrown. strength: 0..1 how loud the opening is; whoosh: 0..1 how much of
+// it is the golden whoosh (a hard throw). Both are held for a moment so the opening isn't cut
+// off, then ease back to the spin's own sound (nothing lingers once the spin is done).
+export function throwSound(strength, whoosh) {
   throwLevel = strength;
+  throwWhoosh = whoosh;
   throwAge = 0;
 }
 
